@@ -1,25 +1,17 @@
 const express = require('express');
-const multer = require('multer');
+const fileUpload = require('express-fileupload');
 const fs = require('fs-extra');
 const moment = require('moment');
 const path = require('path');
 const iconv = require('iconv-lite');
+const morgan = require('morgan');
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
+app.use(morgan('combined'));
+app.use(fileUpload({ createParentPath: true }));
 
-app.use('/wallpaper', express.static(path.join(__dirname, 'public', 'wallpaper')));
-
-const upload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 105 * 1024 * 1024 },
-  filename: (req, file, cb) => {
-    const originalName = iconv.decode(Buffer.from(file.originalname, 'latin1'), 'utf8');
-    cb(null, originalName);
-  }
-});
-
-fs.ensureDirSync('uploads/');
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 let files = [];
 
@@ -38,11 +30,11 @@ function saveFiles() {
 }
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.post('/upload', upload.single('file'), async (req, res) => {
-  const file = req.file;
+app.post('/upload', (req, res) => {
+  const file = req.files.file;
   const username = req.body.username;
   const uploadDate = moment().format('YYYY-MM-DD HH:mm:ss');
 
@@ -50,24 +42,29 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     return res.status(400).send('未上传文件。');
   }
 
-  const ext = path.extname(file.originalname).toLowerCase();
+  const ext = path.extname(file.name).toLowerCase();
   if (!['.zip', '.txt', '.jar', '.log', '.jpg', '.png', '.gif'].includes(ext)) {
     return res.status(400).send('无效的文件类型。');
   }
 
-  const newFilename = iconv.decode(Buffer.from(file.originalname, 'latin1'), 'utf8');
-  await fs.move(`uploads/${file.filename}`, `uploads/${newFilename}`);
+  const newFilename = iconv.decode(Buffer.from(file.name, 'latin1'), 'utf8');
+  const uploadPath = path.join(__dirname, 'uploads', newFilename);
 
-  files.push({
-    filename: newFilename,
-    originalname: file.originalname,
-    username: username,
-    uploadDate: uploadDate,
+  file.mv(uploadPath, async (err) => {
+    if (err) {
+      console.error('文件上传失败：', err);
+      return res.status(500).send('文件上传失败。');
+    }
+
+    files.push({
+      filename: newFilename,
+      originalname: file.name,
+      username: username,
+      uploadDate: uploadDate,
+    });
+    saveFiles();
+    res.send(`文件上传成功，上传者：${username}，上传时间：${uploadDate}`);
   });
-
-  saveFiles();
-
-  res.send(`文件上传成功，上传者：${username}，上传时间：${uploadDate}`);
 });
 
 app.get('/download/:filename', async (req, res) => {
@@ -76,7 +73,7 @@ app.get('/download/:filename', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(req.params.filename)}`);
     res.download(file, (err) => {
       if (err) {
-        console.error(err);
+        console.error('文件下载失败：', err);
       }
     });
   } else {
