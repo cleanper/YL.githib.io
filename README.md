@@ -1,0 +1,1 @@
+下载整个到zip随机文件夹，安装nodejs到安装的电脑，然后打开解压的文件夹cmd输入node server.js运行
