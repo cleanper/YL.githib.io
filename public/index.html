@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的世界资源上传</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .file-list {
+      list-style: none;
+      padding: 0;
+    }
+    .file-list li {
+      margin-bottom: 10px;
+    }
+    .file-list li a {
+      color: #3498db;
+      text-decoration: none;
+    }
+    .file-list li a:hover {
+      text-decoration: underline;
+    }
+    .slideshow {
+      width: 100%;
+      height: 50%;
+      position: relative;
+      overflow: hidden;
+    }
+    .slideshow img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: opacity 1s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>我的世界资源上传</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="text" id="username" name="username" placeholder="用户名" required />
+      <input type="file" id="fileInput" name="file" accept=".zip,.txt,.jar,.log,.jpg,.png,.gif" required />
+      <button type="submit">上传</button>
+    </form>
+    <h2>下载资源</h2>
+    <ul id="fileList" class="file-list"></ul>
+  </div>
+
+  <div class="slideshow">
+    <img id="slideshowImage" src="" alt="Slideshow">
+  </div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      const formData = new FormData(this);
+      fetch('/upload', {
+        method: 'POST',
+        body: formData
+      }).then(response => response.text())
+        .then(data => {
+          alert(data);
+          loadFiles();
+        })
+        .catch(error => console.error(error));
+    });
+
+    async function loadFiles() {
+      const response = await fetch('/files');
+      const files = await response.json();
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = '';
+      files.forEach(file => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <a href="/download/${file.filename}" download="${file.originalname}">${file.originalname}</a>
+          - 上传者：${file.username}，上传时间：${file.uploadDate}
+        `;
+        fileList.appendChild(li);
+      });
+    }
+
+    window.onload = loadFiles;
+
+    // Slideshow functionality
+    const images = [
+      '/wallpaper/image_1.jpg',
+      '/wallpaper/image_2.jpg',
+      '/wallpaper/image_3.jpg',
+      '/wallpaper/image_4.jpg',
+      '/wallpaper/image_5.jpg',
+      '/wallpaper/image_6.jpg'
+    ];
+
+    let currentIndex = 0;
+
+    function showNextImage() {
+      const slideshowImage = document.getElementById('slideshowImage');
+      slideshowImage.src = images[currentIndex];
+      slideshowImage.alt = `Image ${currentIndex + 1}`;
+
+      currentIndex = (currentIndex + 1) % images.length;
+    }
+
+    setInterval(showNextImage, 3500); // Change image every 3.5 seconds
+    showNextImage(); // Show the first image immediately
+  </script>
+</body>
+</html>
